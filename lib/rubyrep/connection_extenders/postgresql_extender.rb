@@ -114,8 +114,22 @@ module RR
           # tests showed that there is a wrong leading double backslash under JRuby
           quoted_value.sub!(/\\\\/, '\\')
           quoted_value
+        elsif column.try(:sql_type) == 'hstore'
+          "$$#{value.map { |k, v| "\"#{k}\"=>#{column_value_for_hstore(v)}" }.join(',')}$$::hstore"
+        elsif column.try(:array)
+          "$${#{value.map { |v| column_value_for_hstore(v) }.join(',')}}$$"
         else
           quote value
+        end
+      end
+
+      def column_value_for_hstore(v)
+        if !v.blank? && v.start_with?('{') && v.end_with?('}')
+          ActiveSupport::JSON.encode(v)
+        elsif v.nil? or v.to_s == 'NULL'
+          'NULL'
+        else
+          "\"#{v.gsub('"', '""')}\""
         end
       end
 
